@@ -1,0 +1,54 @@
+from fastapi import APIRouter , Depends, HTTPException ,status
+
+from schemas.company import companyCreate, companyUpdate ,companyResponse
+from models.company import Company
+
+from sqlalchemy.orm import Session,relationship
+from database import get_db, SessionLocal
+
+router = APIRouter(prefix="/company", tags=["company"])
+companies = []
+
+@router.post("/",status_code=status.HTTP_201_CREATED,
+response_model=companyResponse)
+def create_company(company: companyCreate,db: Session = Depends(get_db)):
+    db_company = company(**company.dict())
+    db.add(db_company)
+    db.commit()
+    db.refresh(db_company)
+    return db_company
+
+@router.get("/",status_code=status.HTTP_200_OK,
+response_model=list[companyResponse])
+def get_all_company(company_id: int,db: Session = Depends(get_db)):
+    companies = db.query(company).all()
+    return companies
+
+@router.get("/{company_id}",status_code=status.HTTP_200_OK,
+response_model=companyResponse)
+def read_company(company_id: int,db: Session = Depends(get_db)):
+    
+    company = db.query(Company).filter(Company.id == company_id).first()
+    if not company:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail="Company not found")
+    return company
+
+
+@router.put("/{company_id}",status_code=status.HTTP_200_OK,
+response_model=companyResponse)
+def update_company(company_id: int, company: companyUpdate,db: Session = Depends(get_db)):
+    db_company = db.query(Company).filter(Company.id == company_id).first()
+    if not db_company:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail="Company not found")
+    for key, value in company.dict().items():
+        setattr(db_company, key, value)
+    db.commit()
+    db.refresh(db_company)
+    return db_company
+
+@router.delete("/{company_id}",status_code=status.HTTP_200_OK)
+def delete_company(company_id: int):
+    companies.pop(company_id)
+    return companies
